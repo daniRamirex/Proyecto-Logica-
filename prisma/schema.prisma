@@ -47,7 +47,7 @@ model Song {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Relations
-  artists     Artist[]
+  artists     SongArtist[]
   authors     SongAuthor[]
 
   @@index([userId])
@@ -62,7 +62,7 @@ model Artist {
   updatedAt DateTime @updatedAt
 
   // Relations
-  songs     Song[]
+  songs     SongArtist[]
 
   @@map("artists")
 }

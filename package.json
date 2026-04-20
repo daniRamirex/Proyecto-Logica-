@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Platform for managing music copyrights with role-based access control",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
