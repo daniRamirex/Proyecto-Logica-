@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { getSongById, updateSong, deleteSong, addArtistToSong, addAuthorToSong, removeArtistFromSong, removeAuthorFromSong } from "@/lib/localStorage"
 import { NextRequest, NextResponse } from "next/server"
 
 type Params = {
@@ -21,28 +21,7 @@ export async function GET(
     const userId = session.user.id as string
     const role = (session.user as any).role
 
-    const song = await prisma.song.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        },
-        artists: {
-          include: {
-            artist: true
-          }
-        },
-        authors: {
-          include: {
-            author: true
-          }
-        }
-      }
-    })
+    const song = getSongById(id)
 
     if (!song) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 })
@@ -84,124 +63,53 @@ export async function PUT(
     const { title, genre, releaseDate, platform, legalMeta, artists, authors } = body
 
     // Check song exists
-    const song = await prisma.song.findUnique({
-      where: { id }
-    })
+    const song = getSongById(id)
 
     if (!song) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 })
     }
 
     // Update song
-    await prisma.song.update({
-      where: { id },
-      data: {
-        title: title || undefined,
-        genre: genre || undefined,
-        releaseDate: releaseDate ? new Date(releaseDate) : undefined,
-        platform: platform || undefined,
-        legalMeta: legalMeta || undefined
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        },
-        artists: {
-          include: {
-            artist: true
-          }
-        },
-        authors: {
-          include: {
-            author: true
-          }
-        }
-      }
+    const updatedSong = updateSong(id, {
+      title: title || undefined,
+      genre: genre || undefined,
+      releaseDate: releaseDate ? new Date(releaseDate).toISOString() : undefined,
+      platform: platform || undefined,
+      legalMeta: legalMeta || undefined
     })
+
+    if (!updatedSong) {
+      return NextResponse.json({ error: "Failed to update song" }, { status: 500 })
+    }
 
     // Update artists if provided
     if (artists !== undefined) {
-      // Delete existing associations
-      await prisma.songArtist.deleteMany({
-        where: { songId: id }
-      })
+      // Remove all existing artists
+      for (const artist of updatedSong.artists) {
+        removeArtistFromSong(id, artist.artist.id)
+      }
 
       // Add new artists
       for (const artistName of artists) {
-        let artist = await prisma.artist.findUnique({
-          where: { name: artistName }
-        })
-
-        if (!artist) {
-          artist = await prisma.artist.create({
-            data: { name: artistName }
-          })
-        }
-
-        await prisma.songArtist.create({
-          data: {
-            songId: id,
-            artistId: artist.id
-          }
-        })
+        addArtistToSong(id, artistName)
       }
     }
 
     // Update authors if provided
     if (authors !== undefined) {
-      // Delete existing associations
-      await prisma.songAuthor.deleteMany({
-        where: { songId: id }
-      })
+      // Remove all existing authors
+      for (const author of updatedSong.authors) {
+        removeAuthorFromSong(id, author.author.id)
+      }
 
       // Add new authors
       for (const authorName of authors) {
-        let author = await prisma.author.findUnique({
-          where: { name: authorName }
-        })
-
-        if (!author) {
-          author = await prisma.author.create({
-            data: { name: authorName }
-          })
-        }
-
-        await prisma.songAuthor.create({
-          data: {
-            songId: id,
-            authorId: author.id
-          }
-        })
+        addAuthorToSong(id, authorName)
       }
     }
 
     // Fetch updated song
-    const finalSong = await prisma.song.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        },
-        artists: {
-          include: {
-            artist: true
-          }
-        },
-        authors: {
-          include: {
-            author: true
-          }
-        }
-      }
-    })
+    const finalSong = getSongById(id)
 
     return NextResponse.json(finalSong)
   } catch (error) {
@@ -232,18 +140,18 @@ export async function DELETE(
     const { id } = await params
 
     // Check song exists
-    const song = await prisma.song.findUnique({
-      where: { id }
-    })
+    const song = getSongById(id)
 
     if (!song) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 })
     }
 
-    // Delete song (cascade deletes song_artists and song_authors)
-    await prisma.song.delete({
-      where: { id }
-    })
+    // Delete song
+    const deleted = deleteSong(id)
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Failed to delete song" }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

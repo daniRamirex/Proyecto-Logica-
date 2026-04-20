@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { getSongs, createSong, addArtistToSong, addAuthorToSong } from "@/lib/localStorage"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(_req: NextRequest) {
@@ -17,53 +17,10 @@ export async function GET(_req: NextRequest) {
 
     if (role === "ADMIN") {
       // Admin sees all songs
-      songs = await prisma.song.findMany({
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true
-            }
-          },
-          artists: {
-            include: {
-              artist: true
-            }
-          },
-          authors: {
-            include: {
-              author: true
-            }
-          }
-        }
-      })
+      songs = getSongs()
     } else {
       // User sees only their songs
-      songs = await prisma.song.findMany({
-        where: {
-          userId: userId
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true
-            }
-          },
-          artists: {
-            include: {
-              artist: true
-            }
-          },
-          authors: {
-            include: {
-              author: true
-            }
-          }
-        }
-      })
+      songs = getSongs(userId)
     }
 
     return NextResponse.json(songs)
@@ -100,103 +57,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Create song
-    const song = await prisma.song.create({
-      data: {
-        title,
-        genre,
-        releaseDate: releaseDate ? new Date(releaseDate) : null,
-        platform,
-        legalMeta,
-        userId: userId || (session.user.id as string)
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        },
-        artists: {
-          include: {
-            artist: true
-          }
-        },
-        authors: {
-          include: {
-            author: true
-          }
-        }
+    const song = createSong({
+      title,
+      genre,
+      releaseDate: releaseDate ? new Date(releaseDate).toISOString() : undefined,
+      platform,
+      legalMeta,
+      userId: userId || (session.user.id as string),
+      user: {
+        id: session.user.id as string,
+        email: session.user.email as string,
+        name: session.user.name as string
       }
     })
 
     // Add artists
     if (artists && Array.isArray(artists)) {
       for (const artistName of artists) {
-        let artist = await prisma.artist.findUnique({
-          where: { name: artistName }
-        })
-
-        if (!artist) {
-          artist = await prisma.artist.create({
-            data: { name: artistName }
-          })
-        }
-
-        await prisma.songArtist.create({
-          data: {
-            songId: song.id,
-            artistId: artist.id
-          }
-        })
+        addArtistToSong(song.id, artistName)
       }
     }
 
     // Add authors
     if (authors && Array.isArray(authors)) {
       for (const authorName of authors) {
-        let author = await prisma.author.findUnique({
-          where: { name: authorName }
-        })
-
-        if (!author) {
-          author = await prisma.author.create({
-            data: { name: authorName }
-          })
-        }
-
-        await prisma.songAuthor.create({
-          data: {
-            songId: song.id,
-            authorId: author.id
-          }
-        })
+        addAuthorToSong(song.id, authorName)
       }
     }
 
     // Fetch updated song with relations
-    const updatedSong = await prisma.song.findUnique({
-      where: { id: song.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        },
-        artists: {
-          include: {
-            artist: true
-          }
-        },
-        authors: {
-          include: {
-            author: true
-          }
-        }
-      }
-    })
+    const updatedSong = getSongs().find(s => s.id === song.id)
 
     return NextResponse.json(updatedSong, { status: 201 })
   } catch (error) {

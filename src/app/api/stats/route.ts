@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { getStats } from "@/lib/localStorage"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(_req: NextRequest) {
@@ -15,19 +15,9 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const [totalSongs, totalArtists, totalAuthors, totalUsers] = await Promise.all([
-      prisma.song.count(),
-      prisma.artist.count(),
-      prisma.author.count(),
-      prisma.user.count()
-    ])
+    const stats = getStats()
 
-    return NextResponse.json({
-      totalSongs,
-      totalArtists,
-      totalAuthors,
-      totalUsers
-    })
+    return NextResponse.json(stats)
   } catch (error) {
     console.error("Get stats error:", error)
     return NextResponse.json(
