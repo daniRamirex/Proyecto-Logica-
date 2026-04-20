@@ -7,7 +7,7 @@ type Params = {
 }
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<Params> }
 ) {
   try {
@@ -93,7 +93,7 @@ export async function PUT(
     }
 
     // Update song
-    const updatedSong = await prisma.song.update({
+    await prisma.song.update({
       where: { id },
       data: {
         title: title || undefined,
@@ -214,7 +214,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<Params> }
 ) {
   try {

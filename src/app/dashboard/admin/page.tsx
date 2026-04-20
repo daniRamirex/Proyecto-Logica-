@@ -12,7 +12,6 @@ export default function AdminDashboard() {
   const [songs, setSongs] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
-  const [deletedId, setDeletedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
