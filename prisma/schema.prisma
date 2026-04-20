@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// User model
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  songs Song[]
+
+  @@map("users")
+}
+
+// Song model
+model Song {
+  id          String   @id @default(cuid())
+  title       String
+  genre       String
+  releaseDate DateTime?
+  platform    String?
+  legalMeta   String?  // JSON string for legal metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign keys
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  artists     Artist[]
+  authors     SongAuthor[]
+
+  @@index([userId])
+  @@map("songs")
+}
+
+// Artist model
+model Artist {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  songs     Song[]
+
+  @@map("artists")
+}
+
+// Author model (Composer/Writer)
+model Author {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  songs     SongAuthor[]
+
+  @@map("authors")
+}
+
+// Junction table for Song-Artist (many-to-many)
+model SongArtist {
+  songId   String
+  artistId String
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  artist   Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([songId, artistId])
+  @@map("song_artists")
+}
+
+// Junction table for Song-Author (many-to-many)
+model SongAuthor {
+  songId   String
+  authorId String
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  author   Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@id([songId, authorId])
+  @@map("song_authors")
+}
